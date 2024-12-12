@@ -37,8 +37,6 @@ export const protocGenEs = createEcmaScriptPlugin({
   version: `v${String(version)}`,
   parseOptions,
   generateTs,
-  generateJs,
-  generateDts,
 });
 
 type Options = {
@@ -82,10 +80,7 @@ function generateTs(schema: Schema<Options>) {
     for (const desc of schema.typesInFile(file)) {
       switch (desc.kind) {
         case "message": {
-          generateMessageShape(f, desc, "ts");
-          if (schema.options.jsonTypes) {
-            generateMessageJsonShape(f, desc, "ts");
-          }
+          generateMessageJsonShape(f, desc, "ts");
           generateDescDoc(f, desc);
           const name = f.importSchema(desc).name;
           const Shape = f.importShape(desc);
@@ -140,143 +135,6 @@ function generateTs(schema: Schema<Options>) {
           f.print(f.jsDoc(desc));
           f.print(f.export("const", name), ": ", GenService, "<", getServiceShapeExpr(f, desc), "> = ", pure);
           f.print("  ", call, ";");
-          f.print();
-          break;
-        }
-      }
-    }
-  }
-}
-
-// prettier-ignore
-function generateJs(schema: Schema<Options>) {
-  for (const file of schema.files) {
-    const f = schema.generateFile(file.name + "_pb.js");
-    f.preamble(file);
-    const fileDesc = f.importSchema(file);
-    generateDescDoc(f, file);
-    f.print(f.export("const", fileDesc.name), " = ", pure);
-    f.print("  ", getFileDescCall(f, file, schema), ";");
-    f.print();
-    for (const desc of schema.typesInFile(file)) {
-      switch (desc.kind) {
-        case "message": {
-          const name = f.importSchema(desc).name;
-          generateDescDoc(f, desc);
-          const { messageDesc } = f.runtime.codegen;
-          const call = functionCall(messageDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print(f.export("const", name), " = ", pure);
-          f.print("  ", call, ";");
-          f.print();
-          break;
-        }
-        case "enum": {
-          // generate descriptor
-          {
-            generateDescDoc(f, desc);
-            const name = f.importSchema(desc).name;
-            f.print(f.export("const", name), " = ", pure);
-            const { enumDesc } = f.runtime.codegen;
-            const call = functionCall(enumDesc, [fileDesc, ...pathInFileDesc(desc)]);
-            f.print("  ", call, ";");
-            f.print();
-          }
-          // declare TypeScript enum
-          {
-            f.print(f.jsDoc(desc));
-            f.print(f.export("const", f.importShape(desc).name), " = ", pure);
-            const { tsEnum } = f.runtime.codegen;
-            const call = functionCall(tsEnum, [f.importSchema(desc)]);
-            f.print("  ", call, ";");
-            f.print();
-          }
-          break;
-        }
-        case "extension": {
-          f.print(f.jsDoc(desc));
-          const name = f.importSchema(desc).name;
-          f.print(f.export("const", name), " = ", pure);
-          const { extDesc } = f.runtime.codegen;
-          const call = functionCall(extDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print("  ", call, ";");
-          f.print();
-          break;
-        }
-        case "service": {
-          f.print(f.jsDoc(desc));
-          const name = f.importSchema(desc).name;
-          f.print(f.export("const", name), " = ", pure);
-          const { serviceDesc } = f.runtime.codegen;
-          const call = functionCall(serviceDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print("  ", call, ";");
-          f.print();
-          break;
-        }
-      }
-    }
-  }
-}
-
-// prettier-ignore
-function generateDts(schema: Schema<Options>) {
-  for (const file of schema.files) {
-    const f = schema.generateFile(file.name + "_pb.d.ts");
-    f.preamble(file);
-    const { GenFile } = f.runtime.codegen;
-    const fileDesc = f.importSchema(file);
-    generateDescDoc(f, file);
-    f.print(f.export("declare const", fileDesc.name), ": ", GenFile, ";");
-    f.print();
-    for (const desc of schema.typesInFile(file)) {
-      switch (desc.kind) {
-        case "message": {
-          generateMessageJsonShape(f, desc, "dts");
-          const name = f.importSchema(desc).name;
-          const Shape = f.importShape(desc);
-          const { GenMessage } = f.runtime.codegen;
-          generateDescDoc(f, desc);
-          if (schema.options.jsonTypes) {
-            const JsonType = f.importJson(desc);
-            f.print(f.export("declare const", name), ": ", GenMessage, "<", Shape, ", ", JsonType, ">", ";");
-          } else {
-            f.print(f.export("declare const", name), ": ", GenMessage, "<", Shape, ">", ";");
-          }
-          f.print();
-          break;
-        }
-        case "enum": {
-          generateEnumShape(f, desc);
-          if (schema.options.jsonTypes) {
-            generateEnumJsonShape(f, desc, "dts");
-          }
-          generateDescDoc(f, desc);
-          const name = f.importSchema(desc).name;
-          const Shape = f.importShape(desc);
-          const { GenEnum } = f.runtime.codegen;
-          if (schema.options.jsonTypes) {
-            const JsonType = f.importJson(desc);
-            f.print(f.export("declare const", name), ": ", GenEnum, "<", Shape, ", ", JsonType, ">;");
-          } else {
-            f.print(f.export("declare const", name), ": ", GenEnum, "<", Shape, ">;");
-          }
-          f.print();
-          break;
-        }
-        case "extension": {
-          const { GenExtension } = f.runtime.codegen;
-          const name = f.importSchema(desc).name;
-          const E = f.importShape(desc.extendee);
-          const V = fieldTypeScriptType(desc, f.runtime).typing;
-          f.print(f.jsDoc(desc));
-          f.print(f.export("declare const", name), ": ", GenExtension, "<", E, ", ", V, ">;");
-          f.print();
-          break;
-        }
-        case "service": {
-          const { GenService } = f.runtime.codegen;
-          const name = f.importSchema(desc).name;
-          f.print(f.jsDoc(desc));
-          f.print(f.export("declare const", name), ": ", GenService, "<", getServiceShapeExpr(f, desc), ">;");
           f.print();
           break;
         }

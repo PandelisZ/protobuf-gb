@@ -1,6 +1,6 @@
 {
   "name": "@pandelis/protoc-gen-types-only",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "license": "Apache-2.0",
   "description": "Protocol Buffers code generator for British script",
   "keywords": [
@@ -12,7 +12,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/bufbuild/protobuf-es.git",
+    "url": "https://github.com/PandelisZ/protoc-gen-gb.git",
     "directory": "packages/protoc-gen-es"
   },
   "bin": {
@@ -23,7 +23,7 @@
   },
   "scripts": {
     "prebuild": "rm -rf ./dist/cjs/*",
-    "build": "../../node_modules/typescript/bin/tsc --project tsconfig.json --outDir ./dist/cjs",
+    "build": "tsc --project tsconfig.json --outDir ./dist/cjs",
     "format": "prettier --write --ignore-unknown '.' '!dist' '!.turbo'",
     "license-header": "license-header",
     "lint": "eslint --max-warnings 0 ."
@@ -44,5 +44,8 @@
   "files": [
     "dist/**",
     "bin/**"
-  ]
+  ],
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
 }
