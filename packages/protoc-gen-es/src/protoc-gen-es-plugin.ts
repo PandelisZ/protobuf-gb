@@ -230,10 +230,7 @@ function generateDts(schema: Schema<Options>) {
     for (const desc of schema.typesInFile(file)) {
       switch (desc.kind) {
         case "message": {
-          generateMessageShape(f, desc, "dts");
-          if (schema.options.jsonTypes) {
-            generateMessageJsonShape(f, desc, "dts");
-          }
+          generateMessageJsonShape(f, desc, "dts");
           const name = f.importSchema(desc).name;
           const Shape = f.importShape(desc);
           const { GenMessage } = f.runtime.codegen;
@@ -395,49 +392,8 @@ function generateEnumJsonShape(f: GeneratedFile, enumeration: DescEnum, target: 
 }
 
 // prettier-ignore
-function generateMessageShape(f: GeneratedFile, message: DescMessage, target: Extract<Target, "ts" | "dts">) {
-  const { Message } = f.runtime;
-  const declaration = target == "ts" ? "type" : "declare type";
-  f.print(f.jsDoc(message));
-  f.print(f.export(declaration, f.importShape(message).name), " = ", Message, "<", f.string(message.typeName), "> & {");
-  for (const member of message.members) {
-    switch (member.kind) {
-      case "oneof":
-        f.print(f.jsDoc(member, "  "));
-        f.print("  ", member.localName, ": {");
-        for (const field of member.fields) {
-          if (member.fields.indexOf(field) > 0) {
-            f.print(`  } | {`);
-          }
-          f.print(f.jsDoc(field, "    "));
-          const { typing } = fieldTypeScriptType(field, f.runtime);
-          f.print(`    value: `, typing, `;`);
-          f.print(`    case: "`, field.localName, `";`);
-        }
-        f.print(`  } | { case: undefined; value?: undefined };`);
-        break;
-      default: {
-        f.print(f.jsDoc(member, "  "));
-        const { typing, optional } = fieldTypeScriptType(member, f.runtime);
-        if (optional) {
-          f.print("  ", member.localName, "?: ", typing, ";");
-        } else {
-          f.print("  ", member.localName, ": ", typing, ";");
-        }
-        break;
-      }
-    }
-    if (message.members.indexOf(member) < message.members.length - 1) {
-      f.print();
-    }
-  }
-  f.print("};");
-  f.print();
-}
-
-// prettier-ignore
 function generateMessageJsonShape(f: GeneratedFile, message: DescMessage, target: Extract<Target, "ts" | "dts">) {
-  const exp = f.export(target == "ts" ? "type" : "declare type", f.importJson(message).name);
+  const exp = f.export(target == "ts" ? "type" : "declare type", f.importShape(message).name);
   f.print(f.jsDoc(message));
   switch (message.typeName) {
     case "google.protobuf.Any":
@@ -481,7 +437,14 @@ function generateMessageJsonShape(f: GeneratedFile, message: DescMessage, target
             || containsSpecialChar.test(jsonName)) {
             jsonName = f.string(jsonName);
           }
-          f.print("  ", jsonName, "?: ", fieldJsonType(field), ";");
+
+          const { typing, optional } = fieldTypeScriptType(field, f.runtime);
+          if (optional) {
+            f.print("  ", field.localName, "?: ", typing, ";");
+          } else {
+            f.print("  ", field.localName, ": ", typing, ";");
+          }
+
           if (message.fields.indexOf(field) < message.fields.length - 1) {
             f.print();
           }

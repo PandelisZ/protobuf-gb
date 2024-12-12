@@ -1,8 +1,8 @@
 {
-  "name": "@bufbuild/protoc-gen-es",
-  "version": "2.2.3",
+  "name": "@pandelis/protoc-gen-types-only",
+  "version": "0.0.1",
   "license": "Apache-2.0",
-  "description": "Protocol Buffers code generator for ECMAScript",
+  "description": "Protocol Buffers code generator for British script",
   "keywords": [
     "protobuf",
     "schema",
@@ -16,10 +16,10 @@
     "directory": "packages/protoc-gen-es"
   },
   "bin": {
-    "protoc-gen-es": "bin/protoc-gen-es"
+    "protoc-gen-types-only": "bin/protoc-gen-types-only"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=22"
   },
   "scripts": {
     "prebuild": "rm -rf ./dist/cjs/*",
