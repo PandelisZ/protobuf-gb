@@ -16,7 +16,6 @@ import type {
   DescEnum,
   DescFile,
   DescMessage,
-  DescService,
 } from "@bufbuild/protobuf";
 import { parentTypes } from "@bufbuild/protobuf/reflect";
 import { embedFileDesc, pathInFileDesc } from "@bufbuild/protobuf/codegenv1";
@@ -33,7 +32,7 @@ import { version } from "../package.json";
 import { RawPluginOptions } from "@bufbuild/protoplugin/dist/cjs/parameter";
 
 export const protocGenEs = createEcmaScriptPlugin({
-  name: "protoc-gen-es",
+  name: "protoc-gen-types-only",
   version: `v${String(version)}`,
   parseOptions,
   generateTs,
@@ -81,38 +80,11 @@ function generateTs(schema: Schema<Options>) {
       switch (desc.kind) {
         case "message": {
           generateMessageJsonShape(f, desc, "ts");
-          generateDescDoc(f, desc);
-          const name = f.importSchema(desc).name;
-          const Shape = f.importShape(desc);
-          const { GenMessage, messageDesc } = f.runtime.codegen;
-          if (schema.options.jsonTypes) {
-            const JsonType = f.importJson(desc);
-            f.print(f.export("const", name), ": ", GenMessage, "<", Shape, ", ", JsonType, ">", " = ", pure);
-          } else {
-            f.print(f.export("const", name), ": ", GenMessage, "<", Shape, ">", " = ", pure);
-          }
-          const call = functionCall(messageDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print("  ", call, ";");
           f.print();
           break;
         }
         case "enum": {
           generateEnumShape(f, desc);
-          if (schema.options.jsonTypes) {
-            generateEnumJsonShape(f, desc, "ts");
-          }
-          generateDescDoc(f, desc);
-          const name = f.importSchema(desc).name;
-          const Shape = f.importShape(desc);
-          const { GenEnum, enumDesc } = f.runtime.codegen;
-          if (schema.options.jsonTypes) {
-            const JsonType = f.importJson(desc);
-            f.print(f.export("const", name), ": ", GenEnum, "<", Shape, ", ", JsonType, ">", " = ", pure);
-          } else {
-            f.print(f.export("const", name), ": ", GenEnum, "<", Shape, ">", " = ", pure);
-          }
-          const call = functionCall(enumDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print("  ", call, ";");
           f.print();
           break;
         }
@@ -124,16 +96,6 @@ function generateTs(schema: Schema<Options>) {
           const call = functionCall(extDesc, [fileDesc, ...pathInFileDesc(desc)]);
           f.print(f.jsDoc(desc));
           f.print(f.export("const", name), ": ", GenExtension, "<", E, ", ", V, ">", " = ", pure);
-          f.print("  ", call, ";");
-          f.print();
-          break;
-        }
-        case "service": {
-          const { GenService, serviceDesc } = f.runtime.codegen;
-          const name = f.importSchema(desc).name;
-          const call = functionCall(serviceDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print(f.jsDoc(desc));
-          f.print(f.export("const", name), ": ", GenService, "<", getServiceShapeExpr(f, desc), "> = ", pure);
           f.print("  ", call, ";");
           f.print();
           break;
@@ -200,22 +162,6 @@ function getFileDescCall(f: GeneratedFile, file: DescFile, schema: Schema) {
   return functionCall(fileDesc, [f.string(info.base64())]);
 }
 
-// prettier-ignore
-function getServiceShapeExpr(f: GeneratedFile, service: DescService): Printable {
-  const p: Printable[] = ["{\n"];
-  for (const method of service.methods) {
-    p.push(f.jsDoc(method, "  "), "\n");
-    p.push("  ", method.localName, ": {\n");
-    p.push("    methodKind: ", f.string(method.methodKind), ";\n");
-    p.push("    input: typeof ", f.importSchema(method.input, true), ";\n");
-    p.push("    output: typeof ", f.importSchema(method.output, true), ";\n");
-    p.push("  },\n");
-  }
-  p.push("}");
-  return p;
-}
-
-// prettier-ignore
 function generateEnumShape(f: GeneratedFile, enumeration: DescEnum) {
   f.print(f.jsDoc(enumeration));
   f.print(f.export("enum", f.importShape(enumeration).name), " {");
@@ -227,25 +173,6 @@ function generateEnumShape(f: GeneratedFile, enumeration: DescEnum) {
     f.print("  ", value.localName, " = ", value.number, ",");
   }
   f.print("}");
-  f.print();
-}
-
-// prettier-ignore
-function generateEnumJsonShape(f: GeneratedFile, enumeration: DescEnum, target: Extract<Target, "ts" | "dts">) {
-  f.print(f.jsDoc(enumeration));
-  const declaration = target == "ts" ? "type" : "declare type";
-  const values: Printable[] = [];
-  if (enumeration.typeName == "google.protobuf.NullValue") {
-    values.push("null");
-  } else {
-    for (const v of enumeration.values) {
-      if (enumeration.values.indexOf(v) > 0) {
-        values.push(" | ");
-      }
-      values.push(f.string(v.name));
-    }
-  }
-  f.print(f.export(declaration, f.importJson(enumeration).name), " = ", values, ";");
   f.print();
 }
 
