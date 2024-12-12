@@ -13,12 +13,8 @@
 // limitations under the License.
 
 import type {
-  DescEnum,
-  DescFile,
-  DescMessage,
+  DescEnum, DescMessage
 } from "@bufbuild/protobuf";
-import { parentTypes } from "@bufbuild/protobuf/reflect";
-import { embedFileDesc, pathInFileDesc } from "@bufbuild/protobuf/codegenv1";
 import { isWrapperDesc } from "@bufbuild/protobuf/wkt";
 import {
   createEcmaScriptPlugin,
@@ -27,7 +23,7 @@ import {
   type Schema,
   type Target,
 } from "@bufbuild/protoplugin";
-import { fieldJsonType, fieldTypeScriptType, functionCall } from "./util";
+import { fieldJsonType, fieldTypeScriptType } from "./util";
 import { version } from "../package.json";
 import { RawPluginOptions } from "@bufbuild/protoplugin/dist/cjs/parameter";
 
@@ -59,22 +55,11 @@ function parseOptions(options: RawPluginOptions): Options {
   return { jsonTypes };
 }
 
-// This annotation informs bundlers that the succeeding function call is free of
-// side effects. This means the symbol can be removed from the module during
-// tree-shaking if it is unused.
-// See https://github.com/bufbuild/protobuf-es/pull/470
-const pure = "/*@__PURE__*/";
-
 // prettier-ignore
 function generateTs(schema: Schema<Options>) {
   for (const file of schema.files) {
     const f = schema.generateFile(file.name + "_pb.ts");
     f.preamble(file);
-    const { GenFile } = f.runtime.codegen;
-    const fileDesc = f.importSchema(file);
-    generateDescDoc(f, file);
-    f.print(f.export("const", fileDesc.name), ": ", GenFile, " = ", pure);
-    f.print("  ", getFileDescCall(f, file, schema), ";");
     f.print();
     for (const desc of schema.typesInFile(file)) {
       switch (desc.kind) {
@@ -88,79 +73,11 @@ function generateTs(schema: Schema<Options>) {
           f.print();
           break;
         }
-        case "extension": {
-          const { GenExtension, extDesc } = f.runtime.codegen;
-          const name = f.importSchema(desc).name;
-          const E = f.importShape(desc.extendee);
-          const V = fieldTypeScriptType(desc, f.runtime).typing;
-          const call = functionCall(extDesc, [fileDesc, ...pathInFileDesc(desc)]);
-          f.print(f.jsDoc(desc));
-          f.print(f.export("const", name), ": ", GenExtension, "<", E, ", ", V, ">", " = ", pure);
-          f.print("  ", call, ";");
-          f.print();
-          break;
-        }
       }
     }
   }
 }
 
-function generateDescDoc(
-  f: GeneratedFile,
-  desc: DescFile | DescMessage | DescEnum,
-): void {
-  let lines: string[];
-  switch (desc.kind) {
-    case "file":
-      lines = [`Describes the ${desc.toString()}.`];
-      break;
-    case "message":
-      lines = [
-        `Describes the ${desc.toString()}.`,
-        `Use \`create(${f.importSchema(desc).name})\` to create a new message.`,
-      ];
-      break;
-    case "enum":
-      lines = [`Describes the ${desc.toString()}.`];
-      break;
-  }
-  const deprecated =
-    desc.deprecated || parentTypes(desc).some((d) => d.deprecated);
-  if (deprecated) {
-    lines.push("@deprecated");
-  }
-  f.print({
-    kind: "es_jsdoc",
-    text: lines.join("\n"),
-  });
-}
-
-// prettier-ignore
-function getFileDescCall(f: GeneratedFile, file: DescFile, schema: Schema) {
-  // Schema provides files with source retention options. Since we do not want to
-  // embed source retention options in generated code, we use FileDescriptorProto
-  // messages from CodeGeneratorRequest.proto_file instead.
-  const sourceFile = file.proto;
-  const runtimeFile = schema.proto.protoFile.find(f => f.name == sourceFile.name);
-  const info = embedFileDesc(runtimeFile ?? sourceFile);
-  if (info.bootable && !f.runtime.create.from.startsWith("@bufbuild/protobuf")) {
-    // google/protobuf/descriptor.proto is embedded as a plain object when
-    // bootstrapping to avoid recursion
-    return functionCall(f.runtime.codegen.boot, [JSON.stringify(info.boot())]);
-  }
-  const { fileDesc } = f.runtime.codegen;
-  if (file.dependencies.length > 0) {
-    const deps: Printable = file.dependencies.map((f) => ({
-      kind: "es_desc_ref",
-      desc: f,
-    }));
-    return functionCall(fileDesc, [
-      f.string(info.base64()),
-      f.array(deps),
-    ]);
-  }
-  return functionCall(fileDesc, [f.string(info.base64())]);
-}
 
 function generateEnumShape(f: GeneratedFile, enumeration: DescEnum) {
   f.print(f.jsDoc(enumeration));
